@@ -1,4 +1,4 @@
-print(('[CheatMenu] build 2026-09-25 21:11 sha d7fb3e22 bytes 226721'):format('2026-09-25 21:11','d7fb3e22',226721))
+print(('[CheatMenu] build 2026-09-25 22:46 sha 8161b6e6 bytes 232394'):format('2026-09-25 22:46','8161b6e6',232394))
 print("[CheatMenu] ===== 加载开始 · V3 内核 [gen v86] =====")
 local GENV
 do local ok,e=pcall(getgenv) GENV=(ok and type(e)=="table") and e or _G end
@@ -32,6 +32,7 @@ AutoSell=false,SellThresholdEnabled=false,
 DeepHide=false,
 TransChat=false,TransUI=false,TransBilingual=false,TransDyn=true,LocalPhrase=true,
 MenuMouse=true,
+NoFog=false,NoShadow=false,Lantern=false,
 AutoUpdateCheck=true,BootUpdateCheck=true,
 },
 C_={
@@ -1865,6 +1866,167 @@ UIS.MouseBehavior=Enum.MouseBehavior.Default
 UIS.MouseIconEnabled=true
 SYS.MenuPrevMouseBehav=nil SYS.MenuPrevMouseIcon=nil
 SYS.FCPrevBehav=nil SYS.FCPrevIcon=nil
+end
+end
+do
+local LanternLight=nil
+local LTExtra=nil
+local function ltExtra()
+if LTExtra or not LT then return LTExtra end
+local ok,t=pcall(function()
+return {FS=LT.FogStart,GS=LT.GlobalShadows}
+end)
+LTExtra=(ok and t) or {}
+return LTExtra
+end
+SYS.LIGHT_MODES={"关闭","夜视","超级光明","全亮"}
+function SYS.MigrateLightMode()
+if SYS.C_.LightMode==nil or SYS.C_.LightMode=="" then
+if SYS.T_.FullBright then SYS.C_.LightMode="全亮"
+elseif SYS.T_.SuperLight or SYS.T_.NightVisionPro then SYS.C_.LightMode="超级光明"
+elseif SYS.T_.NightVision then SYS.C_.LightMode="夜视"
+else SYS.C_.LightMode="关闭" end
+end
+local m=SYS.C_.LightMode
+SYS.T_.FullBright=(m=="全亮")
+SYS.T_.SuperLight=(m=="超级光明")
+SYS.T_.NightVisionPro=false
+SYS.T_.NightVision=(m=="夜视")
+return m
+end
+local __lightGuardAt=0
+function SYS.LightGuardTick()
+local now=os.clock()
+if now-__lightGuardAt<0.4 then return end
+__lightGuardAt=now
+if not LT then return end
+local mode=SYS.C_.LightMode or "关闭"
+P(function()
+if mode=="全亮" then
+if LT.Brightness~=2 then LT.Brightness=2 end
+if LT.ClockTime~=12 then LT.ClockTime=12 end
+if LT.FogEnd<1e5 then LT.FogEnd=1e6 LT.FogStart=1e6 end
+if LT.GlobalShadows then LT.GlobalShadows=false end
+LT.Ambient=Color3.new(1,1,1)
+LT.OutdoorAmbient=Color3.new(1,1,1)
+for _,o in ipairs(LT:GetChildren()) do
+if o:IsA("Atmosphere") and (o.Density and o.Density>0.001) then o.Density=0.001 end
+if o:IsA("ColorCorrectionEffect") then
+if o.Brightness and o.Brightness~=0 then o.Brightness=0 end
+if o.Contrast and o.Contrast~=0 then o.Contrast=0 end
+if o.Saturation and o.Saturation~=0 then o.Saturation=0 end
+end
+end
+elseif mode=="超级光明" then
+if LT.Brightness~=3 then LT.Brightness=3 end
+if LT.ClockTime~=12 then LT.ClockTime=12 end
+elseif mode=="夜视" then
+if LT.Brightness~=2 then LT.Brightness=2 end
+end
+if SYS.T_.NoFog==true and LT.FogEnd<1e5 then LT.FogEnd=1e6 LT.FogStart=1e6 end
+if SYS.T_.NoShadow==true and LT.GlobalShadows then LT.GlobalShadows=false end
+if SYS.T_.Lantern==true then
+local ch=LP.Character
+local root=ch and ch:FindFirstChild("HumanoidRootPart")
+local lant
+if root then
+for _,c in ipairs(root:GetChildren()) do
+if c.Name==SYS.N.Lantern then lant=c break end
+end
+if not lant then
+local pl=Instance.new("PointLight")
+pl.Name=SYS.N.Lantern pl.Brightness=3 pl.Range=60
+pl.Color=Color3.fromRGB(255,240,200) pl.Parent=root
+end
+end
+end
+end)
+end
+function SYS.ReapplyLight()
+if not LT then return end
+local ex=ltExtra()
+local mode=SYS.MigrateLightMode()
+local nf=SYS.T_.NoFog==true
+local ns=SYS.T_.NoShadow==true
+local O=SYS.Orig
+P(function()
+if mode=="全亮" then
+LT.Brightness=2
+LT.ClockTime=12
+LT.Ambient=Color3.new(1,1,1)
+LT.OutdoorAmbient=Color3.new(1,1,1)
+if not SYS.OrigFX then
+SYS.OrigFX={}
+for _,e in ipairs(LT:GetChildren()) do
+if e:IsA("PostEffect") then SYS.OrigFX[e]=e.Enabled e.Enabled=false end
+end
+end
+elseif mode=="超级光明" then
+LT.Brightness=3
+LT.Ambient=Color3.new(1,1,1)
+LT.OutdoorAmbient=Color3.new(1,1,1)
+LT.ClockTime=12
+if SYS.OrigFX then for e,en in pairs(SYS.OrigFX) do P(function() e.Enabled=en end) end SYS.OrigFX=nil end
+elseif mode=="夜视" then
+LT.Brightness=2
+LT.Ambient=Color3.fromRGB(120,120,120)
+LT.OutdoorAmbient=Color3.fromRGB(120,120,120)
+LT.ClockTime=O.ClockTime
+if SYS.OrigFX then for e,en in pairs(SYS.OrigFX) do P(function() e.Enabled=en end) end SYS.OrigFX=nil end
+else
+LT.Brightness=O.Brightness
+LT.Ambient=O.Ambient
+LT.OutdoorAmbient=O.OutdoorAmbient
+LT.ClockTime=O.ClockTime
+if SYS.OrigFX then for e,en in pairs(SYS.OrigFX) do P(function() e.Enabled=en end) end SYS.OrigFX=nil end
+end
+LT.GlobalShadows=not (ns or mode=="全亮")
+if nf or mode=="全亮" then
+LT.FogEnd=1e6 LT.FogStart=1e6
+else
+LT.FogEnd=O.FogEnd LT.FogColor=O.FogColor
+LT.FogStart=(ex.FS~=nil) and ex.FS or LT.FogStart
+end
+end)
+local wantGuard=(SYS.C_.LightMode~="关闭" and SYS.C_.LightMode~=nil)
+or SYS.T_.NoFog==true or SYS.T_.NoShadow==true or SYS.T_.Lantern==true
+if wantGuard then
+SYS.SetLoop("LightGuard",true,RS.Heartbeat,SYS.LightGuardTick)
+else
+SYS.SetLoop("LightGuard",false)
+end
+P(function()
+if SYS.T_.Lantern==true then
+local ch=LP.Character
+local root=ch and ch:FindFirstChild("HumanoidRootPart")
+if root and not (LanternLight and LanternLight.Parent==root) then
+if LanternLight and LanternLight.Parent then LanternLight:Destroy() end
+local pl=Instance.new("PointLight")
+pl.Name=SYS.N.Lantern pl.Brightness=3 pl.Range=60
+pl.Color=Color3.fromRGB(255,240,200) pl.Parent=root
+LanternLight=pl
+end
+elseif LanternLight then
+local l=LanternLight LanternLight=nil
+P(function() if l and l.Parent then l:Destroy() end end)
+end
+end)
+end
+function SYS.RestoreLight()
+P(function()
+if LanternLight and LanternLight.Parent then LanternLight:Destroy() end
+LanternLight=nil
+end)
+if not LT then return end
+local ex=LTExtra or {}
+local O=SYS.Orig
+P(function()
+LT.Brightness=O.Brightness LT.ClockTime=O.ClockTime
+LT.Ambient=O.Ambient LT.OutdoorAmbient=O.OutdoorAmbient
+LT.FogEnd=O.FogEnd LT.FogColor=O.FogColor
+if ex.FS~=nil then LT.FogStart=ex.FS end
+if ex.GS~=nil then LT.GlobalShadows=ex.GS end
+end)
 end
 end
 do
@@ -4973,6 +5135,14 @@ UI.Pages["功能"]=function(p)
 UI.Section(p,"🕳 藏身 · 自杀",CY.green)
 UI.Switch(p,"🕳 藏地下隐身 (服务器认可)","DeepHide",SYS.SetDeepHide)
 UI.Btn(p,"☠ 自杀 (抹除自己的角色)",CY.red,function() P(SYS.ForceSuicide,"erase") end)
+UI.Div(p)
+UI.Section(p,"🌗 光照 · 去雾 (夜视 / 全亮 / 禁雾)",CY.orange)
+UI.Cycle(p,"光照模式",SYS.LIGHT_MODES or {"关闭","夜视","超级光明","全亮"},
+function() return SYS.C_.LightMode or "关闭" end,
+function(v) SYS.C_.LightMode=v P(SYS.ReapplyLight) end)
+UI.Switch(p,"🚫 禁雾 (去迷雾 · 远处不再白茫茫)","NoFog",function() P(SYS.ReapplyLight) end)
+UI.Switch(p,"🌑 禁阴影","NoShadow",function() P(SYS.ReapplyLight) end)
+UI.Switch(p,"🏮 随身灯笼 (只有你看得见的光)","Lantern",function() P(SYS.ReapplyLight) end)
 UI.Div(p)
 end
 UI.Pages["挂机"]=function(p)
